@@ -10,17 +10,23 @@ export OS_USERNAME=?
 export OS_PASSWORD=?
 
 CMD=$(nova list --all-tenants --fields host,name,status | egrep -v "+---------|ID" | awk -F'|' '{print $2,$3,$4,$5}')
-#while read ID  HOST VM STATUS | nova list --all-tenants --fields host,name,status | egrep -v "+---------|ID"
 echo "$CMD" | while read ID  HOST VM STATUS
-#for i in $CMD
 do
-#echo "$STATUS"
-if [ "$STATUS" != "ACTIVE" ]
-then
+case $STATUS in
+ERROR)
 echo "CRITICAL -  $VM on $HOST is currently in $STATUS state"
 exit 2
-fi
+;;
+SUSPENDED)
+echo "CRITICAL -  $VM on $HOST is currently in $STATUS state"
+exit 2
+;;
+PAUSED)
+echo "WARNING -  $VM on $HOST is currently in $STATUS state"
+exit 1
+;;
+esac
 done
-echo "all vms are in OK state"
+echo "OK - all vm's are in OK state"
 exit 0
 
