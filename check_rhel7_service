@@ -1,0 +1,106 @@
+#!/bin/bash
+# 2/16/15
+# Created by Taha Ali (tahazohair@gmail.com)
+#  
+# this nagios plugin basically checks if any service is running and enabled on boot or not. it will only cause a critical 
+# alert if the service is not running. tested on rhel7, centos 7 and should also work with earlier releases.
+#
+#Nagios Exit codes
+
+OK=0
+WARNING=1
+CRITICAL=2
+UNKNOWN=3
+ARGC=$#
+
+systemctl --version >/dev/null 2>&1 && systemctl=1
+[ "$systemctl" ] || RUNLEVEL=$(LANG=C who -r | sed 's/.*run-level \([0-9]\).*/\1/')
+
+usage() {
+cat <<EOF
+check status of system services for rhel7 with systemctl
+options:
+        -s      <service> Specify service name
+        -h      print this menu
+EOF
+}
+
+lsb_to_string() {
+  case $1 in
+  0) echo "active" ;;
+  1) echo "dead" ;;
+  2) echo "dead" ;;
+  3) echo "inactive" ;;
+  *) echo "unknown" ;;
+  esac
+}
+
+
+argcheck() {
+if [ $ARGC -lt $1 ]; then
+        usage
+        exit $CRITICAL
+fi
+}
+
+service_enabled() {
+  if [ "$systemctl" ]; then
+    systemctl --quiet is-enabled $1.service 2>/dev/null
+  else
+    chkconfig --levels $RUNLEVEL "$1"
+  fi
+
+}
+
+check_svc() {
+
+  printf '%-40s' "$1:"
+
+  bootstatus=$(service_enabled $1 && echo enabled || echo disabled)
+  if [ "$systemctl" ]; then
+    status=$(systemctl is-active $1.service 2>/dev/null)
+    # For "simple" systemd services you get
+    # "unknown" if you query a non enabled service
+    if [ "$bootstatus" = 'disabled' ]; then
+      [ $status = 'unknown' ] && status='inactive'
+    fi
+  else
+    status=$(service $1 status >/dev/null 2>/dev/null ; lsb_to_string $?)
+  fi
+
+  if [ "$bootstatus" = 'disabled' ]; then
+    bootstatus='(disabled on boot)'
+  #else
+   # bootstatus=''
+  fi
+
+  test "$bootstatus" && status_pad=10 || status_pad=0
+
+  printf "%-${status_pad}s%s\n" "$status" "$bootstatus"
+
+  if [ "$status" != 'active' ]; then
+        exit $CRITICAL
+  fi
+}
+
+
+while getopts ":hs:" OPTION
+        do
+                case $OPTION in
+                        h)
+                                usage
+                                exit $OK
+                        ;;
+                        s)
+                                SERVICE="$OPTARG"
+                        ;;
+                        \?)
+                                echo "invalid argument, please use \"$0 -h\" for help"
+                                exit 1
+                        ;;
+                esac
+        done
+
+
+argcheck 1
+check_svc $SERVICE
