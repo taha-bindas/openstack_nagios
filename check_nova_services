@@ -1,0 +1,32 @@
+#!/bin/bash
+# Created by: Taha Ali (tahazohair@gmail.com)
+# Created Date: 12/16/2014
+# Nagios nrpe plugin for openstack. This plugin checks nova services if they are enable and up or not.
+#
+
+#set -e
+export OS_TENANT_NAME=$1
+export OS_AUTH_URL=$2
+export OS_USERNAME=$3
+export OS_PASSWORD=$4
+
+EXIT="GOOD"
+
+CMD=$(nova service-list | egrep -v "+----|Binary" | awk -F'|' '{print $2,$3,$4,$5,$6,$8}')
+#while read BINARY HOST ZONE STATUS STATE REASON <<<echo $CMD
+while read BINARY HOST ZONE STATUS STATE REASON
+do
+        if [ "$STATE" != "up" ]
+        then
+                EXIT="BAD"
+                echo "$BINARY on $HOST is $STATE, reason: $REASON"
+                continue
+        fi
+done < <(echo "$CMD")
+        if [ "$EXIT" == "BAD" ]
+        then
+                exit 2
+        else
+                echo "all nova services are up and running"
+        exit 0
+        fi
