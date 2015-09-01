@@ -1,0 +1,73 @@
+#!/usr/bin/python
+
+#### Author : Taha Ali
+#### Created: 08/14/2015
+#### Contact: tahazohair@gmail.com
+###
+##
+# Summary : This program calculates the true multicore load average. it divides the total number of cores available
+# in your system with the load average value, which returns true multi core load average.
+##
+###
+import os
+import sys
+import optparse
+
+# nagios exit status
+OK = 0
+WARN = 1
+CRIT = 2
+UNKNOWN = 3
+
+# Parameters optioning
+parser = optparse.OptionParser(
+    usage="%prog -c <critical_value> -w <warning_value> \nAuthor:\t\tTaha Ali \nContact:\ttahazohair@gmail.com",
+    prog='check_cpu.py',
+    version='1.0',
+    )
+parser.add_option('-c', '--critical',
+                  dest="critical",
+                  default="3",
+                  # action="store",
+                  type="float",
+                  help="critical value times 100% default value set at 3 or 300%",
+                  )
+parser.add_option('-w', '--warning',
+                  dest="warning",
+                  default="2",
+                  # action="store",
+                  type="float",
+                  help="warning value times 100% default value set at 2 or 200%",
+                  )
+(options, args) = parser.parse_args()
+
+# get data from parameters optioning and feed it into warning and critical variables
+critical = options.critical
+warning = options.warning
+
+# get the load average
+load = os.getloadavg()
+# get the first value of the load average
+load1 = float(load[0])
+# get how many cores or processors we have in the box
+cores = open('/proc/cpuinfo').read().count('processor')
+
+
+# Calculation ( loadaverage / number of cores = true load in percentage )
+def load():
+    loadavg = float(load1 / cores)
+    if loadavg >= critical:
+        print "CRITICAL: cpu load average over :", loadavg * 100, '%'
+        sys.exit(CRIT)
+    elif warning <= loadavg < critical:
+        print "WARNING: cpu load average over :", loadavg * 100, '%'
+        sys.exit(WARN)
+    elif loadavg < warning:
+        print "Load average OK : ", loadavg * 100, '%'
+        sys.exit(OK)
+    else:
+        print ("UNKNOWN: unable to process load average : ", loadavg)
+        sys.exit(UNKNOWN)
+
+
+load()
